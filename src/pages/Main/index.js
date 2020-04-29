@@ -5,13 +5,14 @@ import { Link } from 'react-router-dom';
 import api from '../../services/api';
 
 import Container from '../../components/Container';
-import { Form, SubmitButton, List } from './styles';
+import { Form, SubmitButton, List, Error } from './styles';
 
 export default class Main extends Component {
   state = {
     newRepo: '',
     repositories: [],
     loading: false,
+    error: null,
   };
 
   // Carregar os dados do localStorage
@@ -39,25 +40,35 @@ export default class Main extends Component {
   handleSubmit = async (e) => {
     e.preventDefault();
 
-    this.setState({ loading: true });
+    this.setState({ loading: true, error: false });
 
-    const { newRepo, repositories } = this.state;
+    try {
+      const { newRepo, repositories } = this.state;
 
-    const response = await api.get(`/repos/${newRepo}`);
+      // Verificando se já existe esse repositório no state
+      const hasRepo = repositories.find((repo) => repo.full_name === newRepo);
 
-    const data = {
-      name: response.data.full_name,
-    };
+      if (hasRepo) throw new Error('Repositório duplicado');
 
-    this.setState({
-      repositories: [...repositories, data],
-      newRepo: '',
-      loading: false,
-    });
+      const response = await api.get(`/repos/${newRepo}`);
+
+      const data = {
+        name: response.data.full_name,
+      };
+
+      this.setState({
+        repositories: [...repositories, data],
+        newRepo: '',
+      });
+    } catch (err) {
+      this.setState({ error: err.message });
+    } finally {
+      this.setState({ loading: false });
+    }
   };
 
   render() {
-    const { newRepo, repositories, loading } = this.state;
+    const { newRepo, repositories, loading, error } = this.state;
 
     return (
       <Container>
@@ -74,7 +85,7 @@ export default class Main extends Component {
             onChange={this.handleInputChange}
           />
 
-          <SubmitButton loading={loading}>
+          <SubmitButton loading={loading} error={error}>
             {loading ? (
               <FaSpinner color="#FFF" size={14} />
             ) : (
@@ -82,6 +93,8 @@ export default class Main extends Component {
             )}
           </SubmitButton>
         </Form>
+
+        {error && <Error>{error}</Error>}
 
         <List>
           {repositories.map((repository) => (
